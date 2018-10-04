@@ -14,9 +14,11 @@ map.on('load', function() {
     $.getJSON('bus_routes.json', onGeojsonLoaded);
 });
 
-map.on('click', function() {
-    highlightedGeojson.features = allGeojson.features.filter(f => f.properties.line === "33");
-    map.getSource("bus_routes").setData(highlightedGeojson);
+map.on('mousemove', function(e) {
+    var bbox = [[e.point.x - 5, e.point.y - 5], [e.point.x + 5, e.point.y + 5]];
+    highlightedGeojson.features = map.queryRenderedFeatures(bbox, {layers: ['bus_routes']});
+    console.log(highlightedGeojson.features);
+    map.getSource("bus_routes_highlighted").setData(highlightedGeojson);
 });
 
 function onGeojsonLoaded(data) {
@@ -25,10 +27,26 @@ function onGeojsonLoaded(data) {
         type: 'geojson',
         data: allGeojson
     });
+    map.addSource('bus_routes_highlighted', {
+        type: 'geojson',
+        data: highlightedGeojson
+    });
     map.addLayer({
         id: 'bus_routes',
         type: 'line',
-        source: 'bus_routes'
+        source: 'bus_routes',
+        paint: {
+            //"line-opacity": 0.1
+            "line-width": 1
+        }
+    });
+    map.addLayer({
+        id: 'bus_routes_highlighted',
+        type: 'line',
+        source: 'bus_routes_highlighted',
+        paint: {
+            "line-width": 5
+        }
     });
 }
 
