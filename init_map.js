@@ -1,3 +1,5 @@
+const HIGHLIGHT_BBOX_SIZE = 5;
+
 mapboxgl.accessToken = 'pk.eyJ1IjoiemV0dGVyIiwiYSI6ImVvQ3FGVlEifQ.jGp_PWb6xineYqezpSd7wA';
 
 let allGeojson;
@@ -10,13 +12,13 @@ var map = new mapboxgl.Map({
     zoom: 10
 });
 
-map.on('load', function() {
-    $.getJSON('bus_routes.json', onGeojsonLoaded);
-});
+map.on('load', () => $.getJSON('bus_routes.json', onGeojsonLoaded));
 
 map.on('mousemove', function(e) {
-    var bbox = [[e.point.x - 5, e.point.y - 5], [e.point.x + 5, e.point.y + 5]];
-    highlightedGeojson.features = map.queryRenderedFeatures(bbox, {layers: ['bus_routes']});
+    const bbox = [[e.point.x - HIGHLIGHT_BBOX_SIZE, e.point.y - HIGHLIGHT_BBOX_SIZE],
+                  [e.point.x + HIGHLIGHT_BBOX_SIZE, e.point.y + HIGHLIGHT_BBOX_SIZE]];
+    highlightedGeojson.features = map.queryRenderedFeatures(bbox, {layers: ['bus_routes']})
+        .filter(f => !f.properties.line.startsWith("N"));
     console.log(highlightedGeojson.features);
     map.getSource("bus_routes_highlighted").setData(highlightedGeojson);
 });
