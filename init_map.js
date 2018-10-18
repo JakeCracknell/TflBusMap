@@ -1,11 +1,16 @@
 const HIGHLIGHT_BBOX_SIZE = 20;
-const SelectionModeEnum = Object.freeze({NONE_SELECTED: "NONE_SELECTED", BBOX_SELECTED: "BBOX_SELECTED", LINE_SELECTED: "LINE_SELECTED"});
+const SelectionModeEnum = Object.freeze({
+    NONE_SELECTED: "NONE_SELECTED",
+    BBOX_SELECTED: "BBOX_SELECTED",
+    LINE_SELECTED: "LINE_SELECTED"
+});
 
 mapboxgl.accessToken = 'pk.eyJ1IjoiemV0dGVyIiwiYSI6ImVvQ3FGVlEifQ.jGp_PWb6xineYqezpSd7wA';
 
 let allGeojson;
 let highlightedGeojson = {"type": "FeatureCollection", "features": []};
 let selectionMode = SelectionModeEnum.NONE_SELECTED;
+
 
 var map = new mapboxgl.Map({
     container: 'map',
@@ -16,14 +21,14 @@ var map = new mapboxgl.Map({
 
 map.on('load', () => $.getJSON('bus_routes.json', onGeojsonLoaded));
 
-function onMapMouseMove(e) {
+function hoverOverPoint(point) {
     let featuresAroundPoint;
     if (selectionMode === SelectionModeEnum.NONE_SELECTED) {
-        featuresAroundPoint = getFeaturesAroundPoint(e.point, 'bus_routes');
+        featuresAroundPoint = getFeaturesAroundPoint(point, 'bus_routes');
         highlightedGeojson.features = featuresAroundPoint;
         map.getSource("bus_routes_highlighted").setData(highlightedGeojson);
     } else if (selectionMode === SelectionModeEnum.BBOX_SELECTED) {
-        featuresAroundPoint = getFeaturesAroundPoint(e.point, 'bus_routes_highlighted')
+        featuresAroundPoint = getFeaturesAroundPoint(point, 'bus_routes_highlighted')
     }
     if (featuresAroundPoint.length > 0) {
         map.getCanvas().style.cursor = 'pointer';
@@ -31,7 +36,6 @@ function onMapMouseMove(e) {
         map.getCanvas().style.cursor = '';
     }
 }
-
 
 function onMapClick(e) {
     if (selectionMode === SelectionModeEnum.NONE_SELECTED && getFeaturesAroundPoint(e.point, 'bus_routes').length > 0) {
@@ -86,7 +90,8 @@ function onGeojsonLoaded(data) {
             "line-width": 5
         }
     });
-    map.on('mousemove', onMapMouseMove);
+    map.on('mousemove', e => hoverOverPoint(e.point));
+    map.on('touchmove', () => hoverOverPoint({x: window.innerWidth / 2, y: window.innerHeight / 2}));
     map.on('click', onMapClick);
 }
 
