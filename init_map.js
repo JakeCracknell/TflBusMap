@@ -59,12 +59,26 @@ function onMapClick(e) {
 function getFeaturesAroundPoint(point, layer) {
     const bbox = [[point.x - HIGHLIGHT_BBOX_SIZE, point.y - HIGHLIGHT_BBOX_SIZE],
         [point.x + HIGHLIGHT_BBOX_SIZE, point.y + HIGHLIGHT_BBOX_SIZE]];
-    return map.queryRenderedFeatures(bbox, {layers: [layer]})
-        .filter(f => !f.properties.line.startsWith("N"));
+    // queryRenderedFeatures returns tile-clipped fragments of a route, so look the
+    // whole feature back up in the source data by id instead of using the fragment.
+    const seenIds = new Set();
+    const features = [];
+    for (const fragment of map.queryRenderedFeatures(bbox, {layers: [layer]})) {
+        if (seenIds.has(fragment.id)) {
+            continue;
+        }
+        seenIds.add(fragment.id);
+        const feature = allGeojson.features[fragment.id] || fragment;
+        if (!feature.properties.line.startsWith("N")) {
+            features.push(feature);
+        }
+    }
+    return features;
 }
 
 function onGeojsonLoaded(data) {
     allGeojson = data;
+    allGeojson.features.forEach((feature, i) => feature.id = i);
     map.addSource('bus_routes', {
         type: 'geojson',
         data: allGeojson
