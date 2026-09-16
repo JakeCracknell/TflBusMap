@@ -14,6 +14,7 @@ let highlightedGeojson = {"type": "FeatureCollection", "features": []};
 let badgeGeojson = {"type": "FeatureCollection", "features": []};
 const badgeImages = new Set();
 let selectionMode = SelectionModeEnum.NONE_SELECTED;
+let showNightRoutes = false;
 
 
 var map = new mapboxgl.Map({
@@ -74,7 +75,7 @@ function getFeaturesAroundPoint(point, layer) {
         }
         seenIds.add(fragment.id);
         const feature = allGeojson.features[fragment.id] || fragment;
-        if (!feature.properties.line.startsWith("N")) {
+        if (showNightRoutes || !feature.properties.night) {
             features.push(feature);
         }
     }
@@ -83,7 +84,10 @@ function getFeaturesAroundPoint(point, layer) {
 
 function onGeojsonLoaded(data) {
     allGeojson = data;
-    allGeojson.features.forEach((feature, i) => feature.id = i);
+    allGeojson.features.forEach((feature, i) => {
+        feature.id = i;
+        feature.properties.night = feature.properties.line.startsWith("N");
+    });
     map.addSource('bus_routes', {
         type: 'geojson',
         data: allGeojson
@@ -130,6 +134,29 @@ function onGeojsonLoaded(data) {
     map.on('mousemove', e => hoverOverPoint(e.point));
     map.on('touchmove', () => hoverOverPoint({x: window.innerWidth / 2, y: window.innerHeight / 2}));
     map.on('click', onMapClick);
+
+    const nightToggle = document.getElementById('night_routes_toggle');
+    nightToggle.addEventListener('change', () => setNightRoutesVisible(nightToggle.checked));
+    // browsers restore checkbox state across a reload, so follow the box rather
+    // than assuming it starts unchecked.
+    setNightRoutesVisible(nightToggle.checked);
+}
+
+function setNightRoutesVisible(visible) {
+    showNightRoutes = visible;
+    const filter = visible ? null : ["!", ["get", "night"]];
+    map.setFilter('bus_routes', filter);
+    map.setFilter('bus_routes_highlighted', filter);
+    // the highlight is frozen while a bbox is selected - if hiding night routes
+    // empties it, release the selection instead of leaving the map stuck.
+    if (selectionMode === SelectionModeEnum.BBOX_SELECTED && !highlightedGeojson.features.some(isVisibleRoute)) {
+        selectionMode = SelectionModeEnum.NONE_SELECTED;
+    }
+    updateBadges();
+}
+
+function isVisibleRoute(route) {
+    return showNightRoutes || !route.properties.night;
 }
 
 // Places a route-number badge at each end of every highlighted route. Routes
@@ -139,6 +166,9 @@ function updateBadges() {
     const features = [];
     const seenLines = new Set();
     for (const route of highlightedGeojson.features) {
+        if (!isVisibleRoute(route)) {
+            continue;
+        }
         const line = route.properties.line;
         if (seenLines.has(line)) {
             continue; // both directions of a route share a number - badge it once
