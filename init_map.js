@@ -11,9 +11,11 @@ mapboxgl.accessToken = 'pk.eyJ1IjoiemV0dGVyIiwiYSI6ImVvQ3FGVlEifQ.jGp_PWb6xineYq
 
 let allGeojson;
 let highlightedGeojson = {"type": "FeatureCollection", "features": []};
+let selectedGeojson = {"type": "FeatureCollection", "features": []};
 let badgeGeojson = {"type": "FeatureCollection", "features": []};
 const badgeImages = new Set();
 let selectionMode = SelectionModeEnum.NONE_SELECTED;
+let selectedRoute = null;
 let showNightRoutes = false;
 
 
@@ -33,8 +35,8 @@ function hoverOverPoint(point) {
         highlightedGeojson.features = featuresAroundPoint;
         map.getSource("bus_routes_highlighted").setData(highlightedGeojson);
         updateBadges();
-    } else if (selectionMode === SelectionModeEnum.BBOX_SELECTED) {
-        featuresAroundPoint = getFeaturesAroundPoint(point, 'bus_routes_highlighted')
+    } else {
+        featuresAroundPoint = getFeaturesAroundPoint(point, 'bus_routes_highlighted');
     }
     if (featuresAroundPoint.length > 0) {
         map.getCanvas().style.cursor = 'pointer';
@@ -44,21 +46,36 @@ function hoverOverPoint(point) {
 }
 
 function onMapClick(e) {
-    if (selectionMode === SelectionModeEnum.NONE_SELECTED && getFeaturesAroundPoint(e.point, 'bus_routes').length > 0) {
-        selectionMode = SelectionModeEnum.BBOX_SELECTED;
-    } else if (selectionMode === SelectionModeEnum.BBOX_SELECTED) {
-        const selectedLine = getFeaturesAroundPoint(e.point, 'bus_routes_highlighted')[0];
-        if (selectedLine) {
-            //selectionMode = SelectionModeEnum.LINE_SELECTED;
-            const url = "https://tfl.gov.uk/bus/route/" + selectedLine.properties.line +
-                "/?direction=" + selectedLine.properties.direction;
-            new mapboxgl.Popup({closeOnClick: true})
-                .setLngLat(map.unproject(e.point))
-                .setHTML(`<a href="${url}" target="_blank">${selectedLine.properties.line} bus on TFL</h1>`)
-                .addTo(map);
+    if (selectionMode === SelectionModeEnum.NONE_SELECTED) {
+        if (getFeaturesAroundPoint(e.point, 'bus_routes').length > 0) {
+            selectionMode = SelectionModeEnum.BBOX_SELECTED;
+        }
+    } else {
+        const clickedLine = getFeaturesAroundPoint(e.point, 'bus_routes_highlighted')[0];
+        if (clickedLine) {
+            selectionMode = SelectionModeEnum.LINE_SELECTED;
+            setSelectedRoute(clickedLine);
         } else {
             selectionMode = SelectionModeEnum.NONE_SELECTED;
+            setSelectedRoute(null);
         }
+    }
+}
+
+// Draws the clicked route in red and points the bottom-of-screen link at it.
+function setSelectedRoute(route) {
+    selectedRoute = route;
+    selectedGeojson.features = route ? [route] : [];
+    map.getSource("bus_route_selected").setData(selectedGeojson);
+
+    const bar = document.getElementById('route_link');
+    bar.hidden = !route;
+    if (route) {
+        document.getElementById('route_link_badge').textContent = route.properties.line;
+        document.getElementById('route_link_direction').textContent = route.properties.direction;
+        document.getElementById('route_link_anchor').href = "https://tfl.gov.uk/bus/route/" +
+            encodeURIComponent(route.properties.line) + "/?direction=" +
+            encodeURIComponent(route.properties.direction);
     }
 }
 
@@ -96,6 +113,10 @@ function onGeojsonLoaded(data) {
         type: 'geojson',
         data: highlightedGeojson
     });
+    map.addSource('bus_route_selected', {
+        type: 'geojson',
+        data: selectedGeojson
+    });
     map.addSource('bus_route_badges', {
         type: 'geojson',
         data: badgeGeojson
@@ -118,6 +139,15 @@ function onGeojsonLoaded(data) {
         }
     });
     map.addLayer({
+        id: 'bus_route_selected',
+        source: 'bus_route_selected',
+        type: 'line',
+        paint: {
+            "line-width": 6,
+            "line-color": "#DC241F"
+        }
+    });
+    map.addLayer({
         id: 'bus_route_badges',
         type: 'symbol',
         source: 'bus_route_badges',
@@ -135,6 +165,13 @@ function onGeojsonLoaded(data) {
     map.on('touchmove', () => hoverOverPoint({x: window.innerWidth / 2, y: window.innerHeight / 2}));
     map.on('click', onMapClick);
 
+    // dismissing the link drops the red route but keeps the frozen highlight,
+    // so another line in the same bundle can be picked straight away.
+    document.getElementById('route_link_close').addEventListener('click', () => {
+        selectionMode = SelectionModeEnum.BBOX_SELECTED;
+        setSelectedRoute(null);
+    });
+
     const nightToggle = document.getElementById('night_routes_toggle');
     nightToggle.addEventListener('change', () => setNightRoutesVisible(nightToggle.checked));
     // browsers restore checkbox state across a reload, so follow the box rather
@@ -147,10 +184,16 @@ function setNightRoutesVisible(visible) {
     const filter = visible ? null : ["!", ["get", "night"]];
     map.setFilter('bus_routes', filter);
     map.setFilter('bus_routes_highlighted', filter);
+    map.setFilter('bus_route_selected', filter);
+    if (selectedRoute && !isVisibleRoute(selectedRoute)) {
+        selectionMode = SelectionModeEnum.BBOX_SELECTED;
+        setSelectedRoute(null);
+    }
     // the highlight is frozen while a bbox is selected - if hiding night routes
     // empties it, release the selection instead of leaving the map stuck.
-    if (selectionMode === SelectionModeEnum.BBOX_SELECTED && !highlightedGeojson.features.some(isVisibleRoute)) {
+    if (selectionMode !== SelectionModeEnum.NONE_SELECTED && !highlightedGeojson.features.some(isVisibleRoute)) {
         selectionMode = SelectionModeEnum.NONE_SELECTED;
+        setSelectedRoute(null);
     }
     updateBadges();
 }

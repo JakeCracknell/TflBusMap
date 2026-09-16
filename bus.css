@@ -69,3 +69,65 @@ body {
 .toggle input:focus-visible + .switch {
     box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.4);
 }
+
+/* Sits at the bottom of the screen rather than over the click, so the
+   selected polyline stays visible. Clears the Mapbox attribution bar. */
+#route_link {
+    position: absolute;
+    left: 50%;
+    bottom: 30px;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    max-width: calc(100% - 20px);
+    padding: 5px 5px 5px 8px;
+    background: #fff;
+    border-radius: 4px;
+    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
+    font: 13px/1 Arial, Helvetica, sans-serif;
+    white-space: nowrap;
+}
+
+#route_link[hidden] {
+    display: none;
+}
+
+#route_link_badge {
+    flex: none;
+    padding: 4px 6px;
+    border-radius: 4px;
+    background: #DC241F;
+    color: #fff;
+    font-weight: bold;
+}
+
+#route_link_direction {
+    overflow: hidden;
+    margin-left: 8px;
+    color: #666;
+    text-overflow: ellipsis;
+}
+
+#route_link_anchor {
+    flex: none;
+    margin-left: 8px;
+    padding: 4px 0;
+    color: #111;
+}
+
+#route_link_close {
+    flex: none;
+    margin-left: 4px;
+    padding: 0 5px;
+    border: 0;
+    border-radius: 4px;
+    background: none;
+    color: #666;
+    font: 17px/1.2 Arial, Helvetica, sans-serif;
+    cursor: pointer;
+}
+
+#route_link_close:hover {
+    background: #eee;
+    color: #111;
+}
